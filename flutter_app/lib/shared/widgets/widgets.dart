@@ -4,6 +4,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../models/models.dart';
 import '../../core/theme.dart';
+import '../../utils/repair_estimator.dart';
 
 // ── Severity Badge ─────────────────────────────────────────────────────────
 class SeverityBadge extends StatelessWidget {
@@ -92,6 +93,24 @@ class ReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ai    = report.aiResult;
+
+    // Convert raw AI measurements to SI units using the same calibration
+    // constants as ai_worker/cost_estimator.py:
+    //   area_m2  = pothole_area_px / 8000
+    //   depth_mm = relative_depth  * 150  (DEPTH_SCALE=0.15 → ×1000)
+    final areaM2  = (ai?.potholeAreaPx ?? 0) / 8000.0;
+    final depthMm = (ai?.relativeDepth ?? 0) * 150.0;
+
+    final est = RepairEstimatorAhmedabad.estimate(
+      areaM2:     areaM2,
+      depthMm:    depthMm,
+      repairType: RepairType.properCutAndFillHma,
+    );
+
+    // Use AI severity if available; otherwise use estimator severity.
+    final severity = ai?.severity ?? est.severity.toLowerCase();
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
@@ -118,17 +137,20 @@ class ReportCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Info
+            // Info — wrapped in Expanded to prevent RenderFlex overflow
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    if (report.aiResult?.severity != null)
-                      SeverityBadge(severity: report.aiResult!.severity!),
-                    const Spacer(),
-                    StatusChip(status: report.status),
-                  ]),
+                  // Chips: use Wrap so they reflow instead of overflowing
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      SeverityBadge(severity: severity),
+                      StatusChip(status: report.status),
+                    ],
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     report.address ?? 'Location recorded',
@@ -138,6 +160,8 @@ class ReportCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
+                  // Bottom row: upvotes + time + cost
+                  // Use Flexible on each piece so nothing overflows.
                   Row(children: [
                     Icon(Icons.arrow_upward,
                         size: 14,
@@ -146,25 +170,33 @@ class ReportCard extends StatelessWidget {
                       ' ${report.upvoteCount}',
                       style: theme.textTheme.bodySmall,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Icon(Icons.schedule,
                         size: 14,
                         color: theme.colorScheme.onSurfaceVariant),
                     const SizedBox(width: 2),
-                    Text(
-                      _timeAgo(report.submittedAt),
-                      style: theme.textTheme.bodySmall,
+                    Flexible(
+                      child: Text(
+                        _timeAgo(report.submittedAt),
+                        style: theme.textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    if (report.aiResult?.repairCostMax != null) ...[
-                      const Spacer(),
-                      Text(
-                        report.aiResult!.costRangeLabel,
+                    const SizedBox(width: 8),
+                    // Single-number cost derived from real measurements
+                    Flexible(
+                      child: Text(
+                        '₹${est.costInr}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
                       ),
-                    ]
+                    ),
                   ]),
                 ],
               ),
