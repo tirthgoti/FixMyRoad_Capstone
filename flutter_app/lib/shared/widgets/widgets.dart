@@ -108,8 +108,9 @@ class ReportCard extends StatelessWidget {
       repairType: RepairType.properCutAndFillHma,
     );
 
-    // Use AI severity if available; otherwise use estimator severity.
-    final severity = ai?.severity ?? est.severity.toLowerCase();
+    // Use AI severity if available (normalised to lowercase); otherwise use
+    // estimator severity (also lowercased so SeverityBadge gets consistent input).
+    final severity = (ai?.severity?.toLowerCase()) ?? est.severity.toLowerCase();
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

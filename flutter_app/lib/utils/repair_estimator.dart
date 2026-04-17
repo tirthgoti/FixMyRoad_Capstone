@@ -84,11 +84,12 @@ class RepairEstimatorAhmedabad {
 
   /// Compute a [RepairEstimate] for a pothole with the given measurements.
   ///
-  /// Pass the raw measurements from [AiResult]:
+  /// Convert the raw fields from [AiResult] before calling:
   /// ```dart
+  /// final ai = report.aiResult;
   /// final est = RepairEstimatorAhmedabad.estimate(
-  ///   areaM2:     (aiResult.potholeAreaPx ?? 0) / 8000,
-  ///   depthMm:    (aiResult.relativeDepth ?? 0) * 150,
+  ///   areaM2:     (ai?.potholeAreaPx ?? 0) / 8000,
+  ///   depthMm:    (ai?.relativeDepth ?? 0) * 150,
   ///   repairType: RepairType.properCutAndFillHma,
   /// );
   /// ```
