@@ -95,28 +95,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 8),
           Card(
             child: Column(children: [
-              // Theme toggle
-              ListTile(
-                leading: const Icon(Icons.dark_mode_outlined),
-                title: const Text('Theme'),
-                trailing: SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                        value: ThemeMode.light,
-                        icon: Icon(Icons.light_mode, size: 16)),
-                    ButtonSegment(
-                        value: ThemeMode.system,
-                        icon: Icon(Icons.brightness_auto, size: 16)),
-                    ButtonSegment(
-                        value: ThemeMode.dark,
-                        icon: Icon(Icons.dark_mode, size: 16)),
+              // Theme toggle — custom row so the SegmentedButton
+              // gets a fixed width and the 'Theme' label never stacks
+              // vertically on small screens.
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.dark_mode_outlined),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        'Theme',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 162,
+                      child: SegmentedButton<ThemeMode>(
+                        segments: const [
+                          ButtonSegment(
+                              value: ThemeMode.light,
+                              icon: Icon(Icons.light_mode, size: 16)),
+                          ButtonSegment(
+                              value: ThemeMode.system,
+                              icon: Icon(Icons.brightness_auto, size: 16)),
+                          ButtonSegment(
+                              value: ThemeMode.dark,
+                              icon: Icon(Icons.dark_mode, size: 16)),
+                        ],
+                        selected: {themeMode},
+                        onSelectionChanged: (s) => ref
+                            .read(themeModeProvider.notifier)
+                            .state = s.first,
+                        style: const ButtonStyle(
+                            visualDensity: VisualDensity.compact),
+                      ),
+                    ),
                   ],
-                  selected: {themeMode},
-                  onSelectionChanged: (s) => ref
-                      .read(themeModeProvider.notifier)
-                      .state = s.first,
-                  style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact),
                 ),
               ),
               const Divider(height: 1, indent: 16),
