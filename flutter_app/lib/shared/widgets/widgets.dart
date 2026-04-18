@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:fixmyroad/utils/repair_estimator.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../models/models.dart';
@@ -91,7 +92,21 @@ class ReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme  = Theme.of(context);
+    final ai     = report.aiResult;
+    final hasAi  = ai?.hasAiSignals ?? false;
+
+    // Build single-value cost label only after AI signals are available.
+    String? costLabel;
+    if (hasAi && ai?.severity != null) {
+      final est = RepairEstimatorAhmedabad(
+        severity:      ai!.severity!,
+        areaPx:        ai.potholeAreaPx,
+        relativeDepth: ai.relativeDepth,
+      );
+      costLabel = est.costLabel;
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
@@ -123,12 +138,16 @@ class ReportCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    if (report.aiResult?.severity != null)
-                      SeverityBadge(severity: report.aiResult!.severity!),
-                    const Spacer(),
-                    StatusChip(status: report.status),
-                  ]),
+                  // Chips — use Wrap to avoid RenderFlex overflow
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (hasAi && ai?.severity != null)
+                        SeverityBadge(severity: ai!.severity!),
+                      StatusChip(status: report.status),
+                    ],
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     report.address ?? 'Location recorded',
@@ -138,34 +157,43 @@ class ReportCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
+                  // Bottom row — upvotes + time
                   Row(children: [
                     Icon(Icons.arrow_upward,
-                        size: 14,
-                        color: theme.colorScheme.primary),
-                    Text(
-                      ' ${report.upvoteCount}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const SizedBox(width: 12),
+                        size: 14, color: theme.colorScheme.primary),
+                    Text(' ${report.upvoteCount}',
+                        style: theme.textTheme.bodySmall),
+                    const SizedBox(width: 10),
                     Icon(Icons.schedule,
                         size: 14,
                         color: theme.colorScheme.onSurfaceVariant),
                     const SizedBox(width: 2),
-                    Text(
-                      _timeAgo(report.submittedAt),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    if (report.aiResult?.repairCostMax != null) ...[
-                      const Spacer(),
-                      Text(
-                        report.aiResult!.costRangeLabel,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    Expanded(
+                      child: Text(
+                        _timeAgo(report.submittedAt),
+                        style: theme.textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ]
+                    ),
                   ]),
+                  // Cost / Analyzing — on its own line
+                  const SizedBox(height: 4),
+                  if (costLabel != null)
+                    Text(
+                      costLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  else
+                    Text(
+                      'Analyzing…',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                 ],
               ),
             ),

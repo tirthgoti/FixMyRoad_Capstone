@@ -26,21 +26,24 @@ class AnalyzeRequest(BaseModel):
     image_url: str
 
 class AnalyzeResponse(BaseModel):
-    report_id:          str
-    severity:           str | None
-    relative_depth:     float | None
-    max_depth:          float | None
-    pothole_area_px:    float | None
-    confidence:         float | None
-    repair_cost_min:    float | None
-    repair_cost_max:    float | None
-    asphalt_kg:         float | None
-    labour_hours:       float | None
-    material_cost_est:  float | None
-    depth_map_url:      str | None
-    heatmap_url:        str | None
-    before_after_url:   str | None
-    processing_time_s:  float
+    report_id:           str
+    severity:            str | None
+    relative_depth:      float | None
+    max_depth:           float | None
+    pothole_area_px:     float | None
+    confidence:          float | None
+    repair_cost_min:     float | None
+    repair_cost_max:     float | None
+    asphalt_kg:          float | None
+    labour_hours:        float | None
+    material_cost_est:   float | None
+    depth_map_url:       str | None
+    heatmap_url:         str | None
+    before_after_url:    str | None
+    processing_time_s:   float
+    relative_depth_mm:   float | None
+    max_depth_mm:        float | None
+    depth_mm_per_unit:   float | None
 
 class PdfRequest(BaseModel):
     year:  int
@@ -128,6 +131,9 @@ async def analyze(req: AnalyzeRequest):
         "before_after_url":  before_after_url,
         "model_encoder":     "vitl",
         "processing_time_s": processing_time,
+        "relative_depth_mm": results.get("relative_depth_mm"),
+        "max_depth_mm":      results.get("max_depth_mm"),
+        "depth_mm_per_unit": results.get("depth_mm_per_unit"),
     }
 
     try:

@@ -142,20 +142,46 @@ def _compute_metrics(depth_map: np.ndarray, mask: np.ndarray) -> dict:
     mean_d   = float(np.mean(pothole_px))
     min_d    = float(np.min(pothole_px))
     road_lvl = float(np.percentile(road_px, 85))
-    rel_d    = max(road_lvl - mean_d, 0.0)
-    max_d    = max(road_lvl - min_d,  0.0)
 
-    if rel_d < 0.05:   severity = "shallow"
-    elif rel_d < 0.15: severity = "moderate"
-    else:              severity = "deep"
+    # Normalised depth differences.
+    # Observed Supabase values typically range ~0.31–0.79 for real potholes.
+    rel_d = max(road_lvl - mean_d, 0.0)  # mean-based depth
+    max_d = max(road_lvl - min_d,  0.0)  # worst-point depth
 
-    print(f"[Pipeline] Metrics: rel_depth={rel_d:.4f} severity={severity} area={pothole_px.size}px")
+    # Combined score — more stable than rel_d alone.
+    # Old thresholds (<0.05/<0.15) made almost everything "deep" because they
+    # treated normalised 0..1 values as metres.  Tuned thresholds below
+    # match the observed Supabase distribution (rel_d ~ 0.31–0.79).
+    score = 0.6 * rel_d + 0.4 * max_d
+    if score < 0.35:
+        severity = "shallow"
+    elif score < 0.65:
+        severity = "moderate"
+    else:
+        severity = "deep"
+
+    # Convert to mm for display/storage — consistent with cost_estimator.py
+    # DEPTH_SCALE = 0.15 m/unit  →  DEPTH_MM_PER_UNIT = 150 mm/unit
+    DEPTH_MM_PER_UNIT = 150.0
+    rel_mm = rel_d * DEPTH_MM_PER_UNIT
+    max_mm = max_d * DEPTH_MM_PER_UNIT
+
+    print(
+        f"[Pipeline] Metrics: rel_depth={rel_d:.4f} max_depth={max_d:.4f} "
+        f"score={score:.4f} severity={severity} "
+        f"rel_mm={rel_mm:.1f} max_mm={max_mm:.1f} area={pothole_px.size}px"
+    )
+
     return {
-        "relative_depth":  rel_d,
-        "max_depth":       max_d,
-        "road_level":      road_lvl,
-        "severity":        severity,
-        "pothole_area_px": int(pothole_px.size),
+        "relative_depth":    rel_d,
+        "max_depth":         max_d,
+        "road_level":        road_lvl,
+        "severity":          severity,
+        "pothole_area_px":   int(pothole_px.size),
+        # mm estimates — add columns to ai_results in Supabase to persist these
+        "relative_depth_mm": rel_mm,
+        "max_depth_mm":      max_mm,
+        "depth_mm_per_unit": DEPTH_MM_PER_UNIT,
     }
 
 
@@ -329,4 +355,7 @@ def run_full_pipeline(image_bytes: bytes, report_id: str) -> dict:
         "heatmap_bytes":      heatmap_bytes,
         "before_after_bytes": before_after_bytes,
         "used_fallback":      used_fallback,
+        "relative_depth_mm":  metrics.get("relative_depth_mm"),
+        "max_depth_mm":       metrics.get("max_depth_mm"),
+        "depth_mm_per_unit":  metrics.get("depth_mm_per_unit"),
     }

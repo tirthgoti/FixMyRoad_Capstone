@@ -166,6 +166,14 @@ class AiResult {
     if (repairCostMin == null || repairCostMax == null) return 'Calculating...';
     return '₹${repairCostMin!.toStringAsFixed(0)} – ₹${repairCostMax!.toStringAsFixed(0)}';
   }
+
+  /// True when the AI has returned at least one meaningful signal.
+  /// Use this instead of checking [severity] alone, since the backend can
+  /// write severity before finishing numeric analysis.
+  bool get hasAiSignals =>
+      severity != null ||
+      (relativeDepth ?? 0) > 0 ||
+      (potholeAreaPx ?? 0) > 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

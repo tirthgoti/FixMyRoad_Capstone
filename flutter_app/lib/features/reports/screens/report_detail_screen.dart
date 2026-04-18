@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fixmyroad/utils/repair_estimator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/models/models.dart';
@@ -23,6 +24,9 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   bool _loading     = true;
   bool _hasUpvoted  = false;
   bool _upvoting    = false;
+
+  /// True when the AI has returned at least one meaningful signal.
+  bool _hasAiSignals(AiResult? ai) => ai?.hasAiSignals ?? false;
 
   String _severityDescription(String severity) {
   switch (severity) {
@@ -191,7 +195,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
               ],
 
               // ── AI Results card — citizen sees severity only ───────
-              if (ai != null) ...[
+              if (ai != null && _hasAiSignals(ai)) ...[
                 const SectionHeader(title: 'AI Analysis'),
                 Card(
                   child: Padding(
@@ -218,22 +222,50 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                         final isPrivileged = r.engineer?.id == uid ||
                             r.assignedTo == uid;
                         if (!isPrivileged) return const SizedBox.shrink();
+                        final est = ai.severity != null
+                            ? RepairEstimatorAhmedabad(
+                                severity:      ai.severity!,
+                                areaPx:        ai.potholeAreaPx,
+                                relativeDepth: ai.relativeDepth,
+                              )
+                            : null;
                         return Column(children: [
                           const Divider(height: 20),
                           _metricRow('Relative depth',
                               ai.relativeDepth?.toStringAsFixed(4) ?? '—'),
                           _metricRow('Confidence',
-                              '\${((ai.confidence ?? 0) * 100).toStringAsFixed(1)}%'),
-                          _metricRow('Repair cost estimate',
-                              ai.costRangeLabel, highlight: true),
+                              '${((ai.confidence ?? 0) * 100).toStringAsFixed(1)}%'),
+                          if (est != null)
+                            _metricRow('Repair cost estimate',
+                                est.costLabel, highlight: true),
                           if (ai.asphaltKg != null)
                             _metricRow('Asphalt required',
-                                '\${ai.asphaltKg!.toStringAsFixed(1)} kg'),
+                                '${ai.asphaltKg!.toStringAsFixed(1)} kg'),
                           if (ai.labourHours != null)
                             _metricRow('Labour',
-                                '\${ai.labourHours!.toStringAsFixed(1)} hrs'),
+                                '${ai.labourHours!.toStringAsFixed(1)} hrs'),
                         ]);
                       }),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ] else if (ai != null) ...[
+                // AI record exists but no meaningful signals yet
+                const SectionHeader(title: 'AI Analysis'),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(children: [
+                      const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 12),
+                      Text('Analyzing…',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     ]),
                   ),
                 ),
