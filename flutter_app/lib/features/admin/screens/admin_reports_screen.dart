@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fixmyroad/utils/repair_estimator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme.dart';
@@ -274,9 +275,15 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
     );
   }
 
-  double _totalCost() => _reports
-      .where((r) => r.aiResult?.repairCostMax != null)
-      .fold(0.0, (sum, r) => sum + (r.aiResult!.repairCostMax ?? 0));
+  double _totalCost() => _reports.fold(0.0, (sum, r) {
+        final ai = r.aiResult;
+        if (ai?.severity == null) return sum;
+        return sum + RepairEstimatorAhmedabad(
+          severity:      ai!.severity!,
+          areaPx:        ai.potholeAreaPx,
+          relativeDepth: ai.relativeDepth,
+        ).costInr;
+      });
 }
 
 // ── Admin Report Card ──────────────────────────────────────────────────────
@@ -297,6 +304,17 @@ class _AdminReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ai    = report.aiResult;
+
+    // Build single-value cost + depth/area labels from AI data
+    RepairEstimatorAhmedabad? est;
+    if (ai?.severity != null) {
+      est = RepairEstimatorAhmedabad(
+        severity:      ai!.severity!,
+        areaPx:        ai.potholeAreaPx,
+        relativeDepth: ai.relativeDepth,
+      );
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       child: InkWell(
@@ -328,12 +346,16 @@ class _AdminReportCard extends StatelessWidget {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Row(children: [
-                    if (ai?.severity != null)
-                      SeverityBadge(severity: ai!.severity!),
-                    const SizedBox(width: 6),
-                    StatusChip(status: report.status),
-                  ]),
+                  // Chips — Wrap to avoid overflow
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (ai?.severity != null)
+                        SeverityBadge(severity: ai!.severity!),
+                      StatusChip(status: report.status),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     report.address ?? 'Location recorded',
@@ -351,39 +373,71 @@ class _AdminReportCard extends StatelessWidget {
             ]),
             const SizedBox(height: 8),
 
-            // Row 2 — metrics
-            Row(children: [
-              if (ai?.repairCostMax != null) ...[
-                Icon(Icons.currency_rupee,
-                    size: 14, color: theme.colorScheme.primary),
-                Text(ai!.costRangeLabel,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 10),
+            // Row 2 — metrics (Wrap to avoid overflow)
+            Wrap(
+              spacing: 10,
+              runSpacing: 4,
+              children: [
+                // Cost estimate
+                if (est != null)
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.currency_rupee,
+                        size: 14, color: theme.colorScheme.primary),
+                    Text(est.costLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600)),
+                  ])
+                else
+                  Text('Analyzing…',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          color: theme.colorScheme.onSurfaceVariant)),
+
+                // Priority score
+                if (ai?.priorityScore != null)
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.priority_high, size: 14,
+                        color: theme.colorScheme.error),
+                    Text(' ${ai!.priorityScore!.toStringAsFixed(1)}',
+                        style: theme.textTheme.bodySmall),
+                  ]),
+
+                // Upvotes
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.thumb_up_outlined,
+                      size: 14, color: theme.colorScheme.onSurfaceVariant),
+                  Text(' ${report.upvoteCount}',
+                      style: theme.textTheme.bodySmall),
+                ]),
+
+                // Depth in mm
+                if (est?.depthMm != null)
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.straighten, size: 14,
+                        color: theme.colorScheme.onSurfaceVariant),
+                    Text(' ${est!.depthMm!.toStringAsFixed(0)} mm',
+                        style: theme.textTheme.bodySmall),
+                  ]),
+
+                // Area in m²
+                if (est?.areaM2 != null)
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.crop_square, size: 14,
+                        color: theme.colorScheme.onSurfaceVariant),
+                    Text(' ${est!.areaM2!.toStringAsFixed(2)} m²',
+                        style: theme.textTheme.bodySmall),
+                  ]),
+
+                // Assigned engineer
+                if (report.engineer != null)
+                  Text(
+                    '👷 ${report.engineer!.displayName}',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.primary),
+                  ),
               ],
-              if (ai?.priorityScore != null) ...[
-                Icon(Icons.priority_high, size: 14,
-                    color: theme.colorScheme.error),
-                Text(
-                  ' ${ai!.priorityScore!.toStringAsFixed(1)}',
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(width: 10),
-              ],
-              Icon(Icons.thumb_up_outlined,
-                  size: 14,
-                  color: theme.colorScheme.onSurfaceVariant),
-              Text(' ${report.upvoteCount}',
-                  style: theme.textTheme.bodySmall),
-              const Spacer(),
-              if (report.engineer != null)
-                Text(
-                  '👷 ${report.engineer!.displayName}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.primary),
-                ),
-            ]),
+            ),
             const SizedBox(height: 8),
 
             // Row 3 — action buttons
