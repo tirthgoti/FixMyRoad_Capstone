@@ -5,7 +5,7 @@
 class RepairEstimatorAhmedabad {
   // Calibration constants — keep in sync with ai_worker/cost_estimator.py
   static const double _pixelsPerM2    = 8000;  // typical phone at ~1 m height
-  static const double _depthScale     = 0.15;  // normalised depth → metres
+  static const double _depthScale     = 0.15;  // normalized depth (0-1) → meters
   static const double _asphaltDensity = 1.8;   // kg / litre
   static const double _labourRateInr  = 500;   // INR / hour
   static const double _asphaltCostPerKg = 15;  // INR / kg

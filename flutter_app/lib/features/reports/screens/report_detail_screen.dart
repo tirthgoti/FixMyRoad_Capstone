@@ -26,12 +26,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   bool _upvoting    = false;
 
   /// True when the AI has returned at least one meaningful signal.
-  bool _hasAiSignals(AiResult? ai) {
-    if (ai == null) return false;
-    return ai.severity != null ||
-        (ai.relativeDepth ?? 0) > 0 ||
-        (ai.potholeAreaPx ?? 0) > 0;
-  }
+  bool _hasAiSignals(AiResult? ai) => ai?.hasAiSignals ?? false;
 
   String _severityDescription(String severity) {
   switch (severity) {

@@ -90,19 +90,11 @@ class ReportCard extends StatelessWidget {
   final VoidCallback onTap;
   const ReportCard({super.key, required this.report, required this.onTap});
 
-  /// True when the AI has returned at least one meaningful signal.
-  bool _hasAiSignals(AiResult? ai) {
-    if (ai == null) return false;
-    return ai.severity != null ||
-        (ai.relativeDepth ?? 0) > 0 ||
-        (ai.potholeAreaPx ?? 0) > 0;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme  = Theme.of(context);
     final ai     = report.aiResult;
-    final hasAi  = _hasAiSignals(ai);
+    final hasAi  = ai?.hasAiSignals ?? false;
 
     // Build single-value cost label only after AI signals are available.
     String? costLabel;

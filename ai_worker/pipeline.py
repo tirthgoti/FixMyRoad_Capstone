@@ -143,7 +143,8 @@ def _compute_metrics(depth_map: np.ndarray, mask: np.ndarray) -> dict:
     min_d    = float(np.min(pothole_px))
     road_lvl = float(np.percentile(road_px, 85))
 
-    # Normalised depth differences (typically ~0..1)
+    # Normalised depth differences.
+    # Observed Supabase values typically range ~0.31–0.79 for real potholes.
     rel_d = max(road_lvl - mean_d, 0.0)  # mean-based depth
     max_d = max(road_lvl - min_d,  0.0)  # worst-point depth
 
